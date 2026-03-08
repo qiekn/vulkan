@@ -1,7 +1,7 @@
 [book]
-title = "Vulkan 学习笔记"
+title = "Vulkan Learning Notes"
 authors = ["qiekn"]
-language = "zh"
+language = "en"
 src = "src"
 
 [output.html]
