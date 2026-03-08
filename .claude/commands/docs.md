@@ -1,29 +1,32 @@
 ---
-description: 创建或更新 mdbook 文档
+description: Create or update mdbook learning notes
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
-用户输入: $ARGUMENTS
+User input: $ARGUMENTS
 
-你是文档管理助手。根据用户输入执行以下操作：
+You are a documentation helper for a learning-notes-style mdbook site.
 
-## 创建新文档
+## Create a new note
 
-当用户输入一个文件名（如 `pipeline`）时：
+When the user provides a topic name (e.g. `pipeline`):
 
-1. 创建 `docs/src/<name>.md`，写入合适的标题和初始内容
-2. 更新 `docs/src/SUMMARY.md`，在末尾添加新条目
+1. Create `docs/src/<name>.md` with a title and skeleton content
+2. Write in English, first-person learning-note style (e.g. "Here's what I learned...", "The gotcha is...")
+3. Update `docs/src/SUMMARY.md` — add the entry in a logical position
 
-## 更新已有文档
+## Update an existing note
 
-当用户通过 @ 指定了已有文件时：
+When the user references an existing file via @:
 
-1. 读取该文件当前内容
-2. 根据用户要求更新内容
-3. 确保 SUMMARY.md 中已有对应条目，没有则补充
+1. Read the file's current content
+2. Update it based on the user's instructions
+3. Ensure `SUMMARY.md` has a matching entry
 
-## 注意事项
+## Style guidelines
 
-- 文档使用中文书写
-- 保持 SUMMARY.md 条目顺序合理
-- 文件名使用 kebab-case
+- Language: English
+- Tone: personal learning notes, not formal documentation
+- Include code snippets and concrete commands
+- Note gotchas and things that were tricky to figure out
+- File names: kebab-case (e.g. `swap-chain.md`)
