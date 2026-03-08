@@ -1,0 +1,8 @@
+[book]
+title = "Vulkan 学习笔记"
+authors = ["qiekn"]
+language = "zh"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/qiekn/vulkan"
