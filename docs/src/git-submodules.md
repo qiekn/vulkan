@@ -1,3 +1,12 @@
+# Current submodules
+
+| Submodule | Upstream | CMake target |
+|-----------|----------|--------------|
+| `deps/glfw` | [glfw/glfw](https://github.com/glfw/glfw) | `glfw` |
+| `deps/glm` | [g-truc/glm](https://github.com/g-truc/glm) | `glm` |
+| `deps/tinyobjloader` | [tinyobjloader/tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) | `tinyobjloader` |
+
+
 # Git Submodules
 
 All third-party dependencies live under `deps/` as git submodules. This keeps the repo self-contained without vendoring source code.
@@ -49,14 +58,6 @@ git submodule deinit -f deps/<name>
 git rm -f deps/<name>
 rm -rf .git/modules/deps/<name>
 ```
-
-## Current submodules
-
-| Submodule | Upstream | CMake target |
-|-----------|----------|--------------|
-| `deps/glfw` | [glfw/glfw](https://github.com/glfw/glfw) | `glfw` |
-| `deps/glm` | [g-truc/glm](https://github.com/g-truc/glm) | `glm` |
-| `deps/tinyobjloader` | [tinyobjloader/tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) | `tinyobjloader` |
 
 ## Gotcha: header-only vs submodule
 
