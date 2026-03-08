@@ -11,9 +11,9 @@ You are a documentation helper for a learning-notes-style mdbook site.
 
 When the user provides a topic name (e.g. `pipeline`):
 
-1. Create `docs/src/<name>.md` with a title and skeleton content
+1. Create `notes/src/<name>.md` with a title and skeleton content
 2. Write in English, first-person learning-note style (e.g. "Here's what I learned...", "The gotcha is...")
-3. Update `docs/src/SUMMARY.md` — add the entry in a logical position
+3. Update `notes/src/SUMMARY.md` — add the entry in a logical position
 
 ## Update an existing note
 
@@ -21,7 +21,7 @@ When the user references an existing file via @:
 
 1. Read the file's current content
 2. Update it based on the user's instructions
-3. Ensure `SUMMARY.md` has a matching entry
+3. Ensure `notes/src/SUMMARY.md` has a matching entry
 
 ## Style guidelines
 

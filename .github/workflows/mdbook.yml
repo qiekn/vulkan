@@ -3,7 +3,7 @@ name: Deploy mdbook to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: [docs/**]
+    paths: [notes/**]
   workflow_dispatch:
 
 permissions:
@@ -30,12 +30,12 @@ jobs:
           mdbook-version: latest
 
       - name: Build
-        run: mdbook build docs
+        run: mdbook build notes
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/book
+          path: notes/book
 
       - name: Deploy to GitHub Pages
         id: deployment
