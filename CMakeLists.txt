@@ -9,10 +9,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# cpp 20 module
-set(ENABLE_CPP20_MODULE ON)
-
 # -----------------------------------------------------------------------------: Dependences
+set(VULKAN_SDK_PATH "C:/VulkanSDK/1.4.341.1")
+set(Vulkan_INCLUDE_DIR "${VULKAN_SDK_PATH}/Include")
+set(Vulkan_LIBRARY "${VULKAN_SDK_PATH}/Lib/vulkan-1.lib")
+find_package(Vulkan REQUIRED)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glfw)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glm)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/extra)
@@ -24,6 +25,7 @@ file(GLOB_RECURSE HEADER_FILES CONFIGURE_DEPENDS "src/*.h")
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+  Vulkan::Vulkan
   glfw
   glm
   tiny_obj_loader
