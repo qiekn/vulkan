@@ -30,13 +30,14 @@ CMake 配置（首次或 CMakeLists.txt 变更后执行）：
 
 ## Architecture
 
-- **构建系统**: CMake (Ninja)，C++23 标准 + Modules + libc++，生成 `compile_commands.json` 供 clangd 使用
+- **构建系统**: CMake 3.30+ (Ninja)，C++23 标准 + Modules + libc++，生成 `compile_commands.json` 供 clangd 使用
 - **可执行目标**: `vulkan`，源码通过 `GLOB_RECURSE` 收集 `src/*.cpp`（普通源码）和 `src/*.cppm`（module 文件）
-- **依赖管理**: Git submodule（所有第三方库统一使用 submodule）
+- **Vulkan C++ Module**: 通过 `VulkanCppModule` 库封装 Vulkan-Hpp 的 C++ Module（`vulkan.cppm` / `vulkan_video.cppm`），别名 `Vulkan::cppm`
+- **依赖管理**: Git submodule（所有第三方库统一使用 submodule），Vulkan SDK 通过 `find_package(Vulkan)` 查找
 
 | 依赖 | 类型 | 位置 | 用途 |
 |------|------|------|------|
-| Vulkan 1.4 | find_package (系统 SDK) | `C:/VulkanSDK/1.4.341.1` | 图形 API |
+| Vulkan 1.4 | find_package (系统 SDK) | 系统 Vulkan SDK | 图形 API + C++ Module |
 | GLFW 3.4 | submodule | `deps/glfw/` | 窗口、输入、Vulkan surface |
 | GLM | submodule | `deps/glm/` | 数学库 (向量/矩阵/四元数) |
 | tinyobjloader | submodule | `deps/tinyobjloader/` | OBJ 模型加载 |

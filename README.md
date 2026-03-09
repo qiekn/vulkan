@@ -5,9 +5,9 @@
 ## 环境
 
 - **平台**: Windows (MSYS2 UCRT64)
-- **编译器**: Clang 21 (C++23 Modules + libc++)
-- **构建**: CMake 4.2+ / Ninja（`import std;` 需要实验性支持，不同 CMake 版本需更新 `CMakeLists.txt` 中的 UUID）
-- **Vulkan SDK**: 1.4.341.1
+- **编译器**: Clang 21 (C++23 Modules & libc++)
+- **构建**: CMake 3.30+ / Ninja（`import std;` 需要实验性支持，不同 CMake 版本需更新 `CMakeLists.txt` 中的 UUID）
+- **Vulkan SDK**: 1.4.341.1（通过 `find_package(Vulkan)` 查找，使用 Vulkan-Hpp C++ Module）
 
 ## 依赖
 
@@ -19,10 +19,9 @@
 
 ## 构建
 
-需根据本机环境修改 `CMakeLists.txt` 中的以下路径：
+需根据本机环境修改 `CMakeLists.txt` 中的 `CMAKE_EXPERIMENTAL_CXX_IMPORT_STD` UUID（不同 CMake 版本不同）。
 
-- `VULKAN_SDK_PATH` — Vulkan SDK 安装路径（默认 `C:/VulkanSDK/1.4.341.1`）
-- `CMAKE_EXPERIMENTAL_CXX_IMPORT_STD` — 不同 CMake 版本的 UUID 不同
+需自行下载安装 [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)，确保 `VULKAN_SDK` 环境变量已设置。
 
 ```bash
 cmake -B build -G Ninja \
