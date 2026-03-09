@@ -2,7 +2,7 @@
 
 ## Vulkan SDK
 
-Download and install [Vulkan SDK 1.4+](https://vulkan.lunarg.com/sdk/home).
+Download and install [Vulkan SDK 1.4+](https://vulkan.lunarg.com/sdk/home). Make sure the `VULKAN_SDK` environment variable is set — CMake uses `find_package(Vulkan)` to locate it.
 
 ## Toolchain (MSYS2 UCRT64)
 
@@ -35,7 +35,7 @@ This generates `compile_commands.json` for clangd.
 
 ```bash
 cmake --build build -j$(nproc)
-./build/main
+./build/vulkan
 ```
 
 Or use the shortcut:
