@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Vulkan 学习项目，使用 C++23 + libc++，基于 MSYS2 UCRT64 + Clang 工具链（Windows）。
 
+注意代码风格为 Google C++，函数名我们使用 PascalCase
+
 目前在学习 这个文档 https://docs.vulkan.org/tutorial/latest/
 
 ## Build Commands
