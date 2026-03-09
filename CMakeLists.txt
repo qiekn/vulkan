@@ -15,10 +15,8 @@ set(CMAKE_CXX_MODULE_STD ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # -----------------------------------------------------------------------------: Dependences
-set(VULKAN_SDK_PATH "C:/VulkanSDK/1.4.341.1")
-set(Vulkan_INCLUDE_DIR "${VULKAN_SDK_PATH}/Include")
-set(Vulkan_LIBRARY "${VULKAN_SDK_PATH}/Lib/vulkan-1.lib")
 find_package(Vulkan REQUIRED)
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glfw)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glm)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/tinyobjloader)
@@ -26,18 +24,21 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/deps/tinyobjloader)
 # -----------------------------------------------------------------------------: Vulkan C++ Module
 add_library(VulkanCppModule)
 add_library(Vulkan::cppm ALIAS VulkanCppModule)
+
 target_compile_definitions(VulkanCppModule PUBLIC
   VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
   VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
 )
-target_include_directories(VulkanCppModule PRIVATE "${Vulkan_INCLUDE_DIR}")
+
+target_include_directories(VulkanCppModule PRIVATE "${Vulkan_INCLUDE_DIRS}")
 target_link_libraries(VulkanCppModule PUBLIC Vulkan::Vulkan)
+
 target_sources(VulkanCppModule
   PUBLIC
   FILE_SET cxx_modules TYPE CXX_MODULES
-  BASE_DIRS "${Vulkan_INCLUDE_DIR}"
-  FILES "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
-        "${Vulkan_INCLUDE_DIR}/vulkan/vulkan_video.cppm"
+  BASE_DIRS "${Vulkan_INCLUDE_DIRS}"
+  FILES "${Vulkan_INCLUDE_DIRS}/vulkan/vulkan.cppm"
+        "${Vulkan_INCLUDE_DIRS}/vulkan/vulkan_video.cppm"
 )
 
 # -----------------------------------------------------------------------------: Targets
