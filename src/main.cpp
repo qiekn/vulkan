@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <cstdlib>
 
 import vulkan;
 import std;
@@ -45,8 +46,8 @@ int main() {
     app.Run();
   } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
-    return 1;
+    return EXIT_FAILURE;
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }
