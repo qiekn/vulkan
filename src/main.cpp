@@ -1,7 +1,11 @@
-// import 代替 #include，编译器会自动找到对应的 .cppm 编译产物
 import greeting;
+import std;
 
 int main() {
   greet("Vulkan");
+
+  std::string name = "qiekn";
+  std::println("Hello, {}!", name);
+
   return 0;
 }

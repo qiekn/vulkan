@@ -1,10 +1,15 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.30)
 
-project(main)
-
-set(CMAKE_CXX_STANDARD 20)
+# import std: must be set before project() for toolchain detection
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
+
+project(vulkan)
+
+set(CMAKE_CXX_MODULE_STD ON)
 
 # compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

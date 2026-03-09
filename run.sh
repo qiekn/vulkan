@@ -2,7 +2,7 @@
 
 BUILD="build"
 DEBUGGER="gdb"
-TARGET="main"
+TARGET="vulkan"
 
 if [ "$1" = "debug" ]; then
   ${DEBUGGER} ./build/${TARGET}

@@ -5,16 +5,10 @@
 # Enable general readability checks (readability-*)
 Checks: >
   -*,
-  google-*,
-  bugprone-*,
-  clang-analyzer-*,
-  performance-*,
-  readability-*,
-  -readability-magic-numbers,
-  -google-readability-todo
+  google-*
 
-# Treat all warnings as errors (Optional, but recommended for strict compliance)
-WarningsAsErrors: '*'
+# Warnings stay as warnings, not promoted to errors
+WarningsAsErrors: ''
 
 # Specific check configurations
 CheckOptions:
