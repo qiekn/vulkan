@@ -23,6 +23,23 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glfw)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/glm)
 add_subdirectory(${CMAKE_SOURCE_DIR}/deps/tinyobjloader)
 
+# -----------------------------------------------------------------------------: Vulkan C++ Module
+add_library(VulkanCppModule)
+add_library(Vulkan::cppm ALIAS VulkanCppModule)
+target_compile_definitions(VulkanCppModule PUBLIC
+  VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+  VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
+)
+target_include_directories(VulkanCppModule PRIVATE "${Vulkan_INCLUDE_DIR}")
+target_link_libraries(VulkanCppModule PUBLIC Vulkan::Vulkan)
+target_sources(VulkanCppModule
+  PUBLIC
+  FILE_SET cxx_modules TYPE CXX_MODULES
+  BASE_DIRS "${Vulkan_INCLUDE_DIR}"
+  FILES "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
+        "${Vulkan_INCLUDE_DIR}/vulkan/vulkan_video.cppm"
+)
+
 # -----------------------------------------------------------------------------: Targets
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB_RECURSE MODULE_FILES CONFIGURE_DEPENDS "src/*.cppm")
@@ -32,7 +49,7 @@ target_sources(${PROJECT_NAME} PRIVATE ${SOURCE_FILES})
 target_sources(${PROJECT_NAME} PRIVATE FILE_SET CXX_MODULES FILES ${MODULE_FILES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  Vulkan::Vulkan
+  Vulkan::cppm
   glfw
   glm
   tinyobjloader
