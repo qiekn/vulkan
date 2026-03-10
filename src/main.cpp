@@ -25,13 +25,17 @@ private:
   vk::raii::Context context_;
   vk::raii::Instance instance_ = nullptr;
   vk::raii::DebugUtilsMessengerEXT debug_messenger_ = nullptr;
+  vk::raii::PhysicalDevice physical_device_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
 
-private:
   const std::vector<const char*> kValidationLayers = {
       "VK_LAYER_KHRONOS_validation",
+  };
+
+  const std::vector<const char*> kRequiredDeviceExtensions = {
+      vk::KHRSwapchainExtensionName,
   };
 
   void InitWindow() {
@@ -44,6 +48,7 @@ private:
   void InitVulkan() {
     CreateInstance();
     SetupDebugMessenger();
+    PickPhysicalDevice();
   }
 
   void MainLoop() {
@@ -154,6 +159,45 @@ private:
       std::cerr << "validation layer: " << callback_data->pMessage << std::endl;
     }
     return vk::False;
+  }
+
+  // ---------------------------------------------------------------------------: Physical Device
+
+  void PickPhysicalDevice() {
+    auto physical_devices = instance_.enumeratePhysicalDevices();
+    auto it = std::ranges::find_if(physical_devices, [&](const auto& device) {
+      return IsDeviceSuitable(device);
+    });
+    if (it == physical_devices.end()) {
+      throw std::runtime_error("Failed to find a suitable GPU!");
+    }
+    physical_device_ = *it;
+  }
+
+  bool IsDeviceSuitable(const vk::raii::PhysicalDevice& device) {
+    bool supports_vulkan_1_3 = device.getProperties().apiVersion >= vk::ApiVersion13;
+
+    auto queue_families = device.getQueueFamilyProperties();
+    bool supports_graphics = std::ranges::any_of(queue_families, [](const auto& qfp) {
+      return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics);
+    });
+
+    auto available_extensions = device.enumerateDeviceExtensionProperties();
+    bool supports_required_extensions = std::ranges::all_of(kRequiredDeviceExtensions, [&](const char* required) {
+      return std::ranges::any_of(available_extensions, [required](const auto& ext) {
+        return strcmp(ext.extensionName, required) == 0;
+      });
+    });
+
+    auto features = device.getFeatures2<
+        vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+    bool supports_required_features =
+        features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+        features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+
+    return supports_vulkan_1_3 && supports_graphics && supports_required_extensions && supports_required_features;
   }
 };
 
