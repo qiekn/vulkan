@@ -49,6 +49,7 @@ CMake 配置（首次或 CMakeLists.txt 变更后执行）：
 - 类成员变量后缀 `_`（如 `member_`），命名空间/变量 `lower_case`，类/结构体 `CamelCase`
 - 常量/枚举值使用 `k` 前缀 + `CamelCase`（如 `kMaxSize`）
 - `.clang-tidy` 警告不提升为错误
+- 分节注释使用单行格式：`// ---...---: SectionName`
 
 ## C++23 Modules
 
