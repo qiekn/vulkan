@@ -345,21 +345,13 @@ private:
 
   void CreateImageViews() {
     swapchain_image_views_.reserve(swapchain_images_.size());
+    vk::ImageViewCreateInfo create_info{
+        .viewType = vk::ImageViewType::e2D,
+        .format = swapchain_format_.format,
+        .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1},
+    };
     for (auto image : swapchain_images_) {
-      vk::ImageViewCreateInfo create_info{
-          .image = image,
-          .viewType = vk::ImageViewType::e2D,
-          .format = swapchain_format_.format,
-          .components = {.r = vk::ComponentSwizzle::eIdentity,
-                         .g = vk::ComponentSwizzle::eIdentity,
-                         .b = vk::ComponentSwizzle::eIdentity,
-                         .a = vk::ComponentSwizzle::eIdentity},
-          .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
-                               .baseMipLevel = 0,
-                               .levelCount = 1,
-                               .baseArrayLayer = 0,
-                               .layerCount = 1},
-      };
+      create_info.image = image;
       swapchain_image_views_.emplace_back(device_, create_info);
     }
   }
