@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <cassert>
 #include <cstdlib>
 
 import vulkan;
@@ -26,6 +27,8 @@ private:
   vk::raii::Instance instance_ = nullptr;
   vk::raii::DebugUtilsMessengerEXT debug_messenger_ = nullptr;
   vk::raii::PhysicalDevice physical_device_ = nullptr;
+  vk::raii::Device device_ = nullptr;
+  vk::raii::Queue graphics_queue_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -49,6 +52,7 @@ private:
     CreateInstance();
     SetupDebugMessenger();
     PickPhysicalDevice();
+    CreateLogicalDevice();
   }
 
   void MainLoop() {
@@ -198,6 +202,49 @@ private:
         features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
 
     return supports_vulkan_1_3 && supports_graphics && supports_required_extensions && supports_required_features;
+  }
+
+  // ---------------------------------------------------------------------------: Logical Device
+
+  uint32_t FindGraphicsQueueFamily() {
+    auto queue_families = physical_device_.getQueueFamilyProperties();
+    auto it = std::ranges::find_if(queue_families, [](const auto& qfp) {
+      return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics);
+    });
+    assert(it != queue_families.end() && "No graphics queue family found!");
+    return static_cast<uint32_t>(std::distance(queue_families.begin(), it));
+  }
+
+  void CreateLogicalDevice() {
+    uint32_t graphics_family = FindGraphicsQueueFamily();
+
+    float queue_priority = 0.5f;
+
+    vk::DeviceQueueCreateInfo queue_create_info{
+        .queueFamilyIndex = graphics_family,
+        .queueCount = 1,
+        .pQueuePriorities = &queue_priority,
+    };
+
+    vk::StructureChain<vk::PhysicalDeviceFeatures2,
+                       vk::PhysicalDeviceVulkan13Features,
+                       vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> feature_chain = {
+        {},
+        {.dynamicRendering = true},
+        {.extendedDynamicState = true},
+    };
+
+    vk::DeviceCreateInfo create_info{
+        .pNext = &feature_chain.get<vk::PhysicalDeviceFeatures2>(),
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queue_create_info,
+        .enabledExtensionCount = static_cast<uint32_t>(kRequiredDeviceExtensions.size()),
+        .ppEnabledExtensionNames = kRequiredDeviceExtensions.data(),
+    };
+
+
+    device_ = vk::raii::Device(physical_device_, create_info);
+    graphics_queue_ = vk::raii::Queue(device_, graphics_family, 0);
   }
 };
 
