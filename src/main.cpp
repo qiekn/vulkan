@@ -1,6 +1,8 @@
-#include <GLFW/glfw3.h>
 #include <cassert>
 #include <cstdlib>
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 import vulkan;
 import std;
@@ -29,6 +31,7 @@ private:
   vk::raii::PhysicalDevice physical_device_ = nullptr;
   vk::raii::Device device_ = nullptr;
   vk::raii::Queue graphics_queue_ = nullptr;
+  vk::raii::SurfaceKHR surface_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -51,6 +54,7 @@ private:
   void InitVulkan() {
     CreateInstance();
     SetupDebugMessenger();
+    CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
   }
@@ -208,11 +212,13 @@ private:
 
   uint32_t FindGraphicsQueueFamily() {
     auto queue_families = physical_device_.getQueueFamilyProperties();
-    auto it = std::ranges::find_if(queue_families, [](const auto& qfp) {
-      return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics);
+    auto indices = std::views::iota(0u, static_cast<uint32_t>(queue_families.size()));
+    auto it = std::ranges::find_if(indices, [&](uint32_t i) {
+      return !!(queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics)
+          && physical_device_.getSurfaceSupportKHR(i, *surface_);
     });
-    assert(it != queue_families.end() && "No graphics queue family found!");
-    return static_cast<uint32_t>(std::distance(queue_families.begin(), it));
+    assert(it != indices.end() && "No queue family with graphics + present support!");
+    return *it;
   }
 
   void CreateLogicalDevice() {
@@ -246,6 +252,17 @@ private:
     device_ = vk::raii::Device(physical_device_, create_info);
     graphics_queue_ = vk::raii::Queue(device_, graphics_family, 0);
   }
+
+  // ---------------------------------------------------------------------------: Surface
+
+  void CreateSurface() {
+    VkSurfaceKHR raw_surface;
+    if (glfwCreateWindowSurface(*instance_, window_, nullptr, &raw_surface) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create window surface!");
+    }
+    surface_ = vk::raii::SurfaceKHR(instance_, raw_surface);
+  }
+
 };
 
 int main() {
