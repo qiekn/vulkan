@@ -64,6 +64,7 @@ private:
     CreateLogicalDevice();
     CreateSwapchain();
     CreateImageViews();
+    CreateGraphicsPipeline();
   }
 
   void MainLoop() {
@@ -206,6 +207,7 @@ private:
 
     auto features = device.getFeatures2<
         vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
     bool supports_required_features =
@@ -240,9 +242,11 @@ private:
     };
 
     vk::StructureChain<vk::PhysicalDeviceFeatures2,
+                       vk::PhysicalDeviceVulkan11Features,
                        vk::PhysicalDeviceVulkan13Features,
                        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> feature_chain = {
         {},
+        {.shaderDrawParameters = true},
         {.dynamicRendering = true},
         {.extendedDynamicState = true},
     };
@@ -354,6 +358,48 @@ private:
       create_info.image = image;
       swapchain_image_views_.emplace_back(device_, create_info);
     }
+  }
+
+  // ----------------------------------------------------------------------------: Graphics Pipline
+  void CreateGraphicsPipeline() {
+    vk::raii::ShaderModule shader_module = CreateShaderModule(ReadFile("assets/shaders/slang.spv"));
+
+    vk::PipelineShaderStageCreateInfo vert_shader_stage_info{
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = shader_module,
+        .pName = "vertMain"
+    };
+    vk::PipelineShaderStageCreateInfo frag_shader_stage_info{
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = shader_module,
+        .pName = "fragMain"
+    };
+    vk::PipelineShaderStageCreateInfo shader_stages[] = {
+      vert_shader_stage_info,
+      frag_shader_stage_info
+    };
+  }
+
+  [[nodiscard]] vk::raii::ShaderModule CreateShaderModule(const std::vector<char>& code) const {
+    vk::ShaderModuleCreateInfo create_info{
+        .codeSize = code.size() * sizeof(char),
+        .pCode = reinterpret_cast<const uint32_t*>(code.data())
+    };
+    vk::raii::ShaderModule shaderModule{device_, create_info};
+
+    return shaderModule;
+  }
+
+  static std::vector<char> ReadFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) {
+      throw std::runtime_error("failed to open file!");
+    }
+    std::vector<char> buffer(file.tellg());
+    file.seekg(0, std::ios::beg);
+    file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    file.close();
+    return buffer;
   }
 
 };

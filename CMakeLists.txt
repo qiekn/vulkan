@@ -14,6 +14,9 @@ set(CMAKE_CXX_MODULE_STD ON)
 # compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# -----------------------------------------------------------------------------: Config
+set(SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/assets/shaders)
+
 # -----------------------------------------------------------------------------: Dependences
 find_package(Vulkan REQUIRED)
 
@@ -42,9 +45,34 @@ target_sources(VulkanCppModule
         "${Vulkan_INCLUDE_DIRS}/vulkan/vulkan_video.cppm"
 )
 
+# -----------------------------------------------------------------------------: Slang
+
+function (add_slang_shader_target TARGET)
+  cmake_parse_arguments ("SHADER" "" "" "SOURCES" ${ARGN})
+
+  set (SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/assets/shaders)
+  file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+
+  set (ENTRY_POINTS -entry vertMain -entry fragMain)
+  add_custom_command (
+          OUTPUT ${SHADERS_DIR}
+          COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
+  )
+  add_custom_command (
+          OUTPUT  ${SHADERS_DIR}/slang.spv
+          COMMAND slangc ${SHADER_SOURCES} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o slang.spv
+          WORKING_DIRECTORY ${SHADERS_DIR}
+          DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
+          COMMENT "Compiling Slang Shaders"
+          VERBATIM
+  )
+  add_custom_target (${TARGET} DEPENDS ${SHADERS_DIR}/slang.spv)
+endfunction()
+
 # -----------------------------------------------------------------------------: Targets
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB_RECURSE MODULE_FILES CONFIGURE_DEPENDS "src/*.cppm")
+file(GLOB_RECURSE SHADER_SLANG_SOURCES CONFIGURE_DEPENDS "assets/shaders/*.slang")
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCE_FILES})
@@ -56,3 +84,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   glm
   tinyobjloader
 )
+
+add_slang_shader_target(shader SOURCES ${SHADER_SLANG_SOURCES})
+add_dependencies(${PROJECT_NAME} shader)

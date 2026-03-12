@@ -23,6 +23,12 @@
 
 需自行下载安装 [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)，确保 `VULKAN_SDK` 环境变量已设置。
 
+把 VulkanSDK 的 Bin 添加到环境变量中，目前主要是使用了 slangc.exe，下面是我的 MSYS2 配置
+
+```bash
+export PATH=$PATH:"/c/VulkanSDK/1.4.341.1/Bin"
+```
+
 ```bash
 cmake -B build -G Ninja \
   -DCMAKE_C_COMPILER=clang \
