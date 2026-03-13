@@ -28,6 +28,8 @@ CMake 配置（首次或 CMakeLists.txt 变更后执行）：
 
 也可用 `./run.sh` 快捷构建运行，`./run.sh debug` 进入 GDB 调试。
 
+**注意**：`run.sh` 会 `cd build` 后再运行可执行文件，因此代码中的相对路径（如 `assets/shaders/slang.spv`）基于 `build/` 目录。直接在项目根目录执行 `./build/vulkan` 会因工作目录不同导致找不到资源文件。测试运行时应使用 `./run.sh`。
+
 ## Architecture
 
 - **构建系统**: CMake 3.30+ (Ninja)，C++23 标准 + Modules + libc++，生成 `compile_commands.json` 供 clangd 使用
