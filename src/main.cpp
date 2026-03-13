@@ -37,6 +37,7 @@ private:
   vk::SurfaceFormatKHR swapchain_format_;
   vk::Extent2D swapchain_extent_;
   std::vector<vk::raii::ImageView> swapchain_image_views_;
+  vk::raii::PipelineLayout pipeline_layout_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -360,24 +361,73 @@ private:
     }
   }
 
-  // ----------------------------------------------------------------------------: Graphics Pipline
-  void CreateGraphicsPipeline() {
-    vk::raii::ShaderModule shader_module = CreateShaderModule(ReadFile("assets/shaders/slang.spv"));
+  // ----------------------------------------------------------------------------: Graphics Pipeline
 
-    vk::PipelineShaderStageCreateInfo vert_shader_stage_info{
-        .stage = vk::ShaderStageFlagBits::eVertex,
-        .module = shader_module,
-        .pName = "vertMain"
-    };
-    vk::PipelineShaderStageCreateInfo frag_shader_stage_info{
-        .stage = vk::ShaderStageFlagBits::eFragment,
-        .module = shader_module,
-        .pName = "fragMain"
-    };
+  void CreateGraphicsPipeline() {
+    auto shader_module = CreateShaderModule(ReadFile("assets/shaders/slang.spv"));
+
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
-      vert_shader_stage_info,
-      frag_shader_stage_info
+        {.stage = vk::ShaderStageFlagBits::eVertex, .module = shader_module, .pName = "vertMain"},
+        {.stage = vk::ShaderStageFlagBits::eFragment, .module = shader_module, .pName = "fragMain"},
     };
+
+    // Vertex input: no vertex data for now (hardcoded in shader)
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info;
+
+    // Input assembly: draw triangles from every 3 vertices
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly{
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
+
+    // Viewport & scissor: count only, actual values set dynamically at draw time
+    vk::PipelineViewportStateCreateInfo viewport_state{
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+
+    // Rasterizer: fill triangles, cull back faces
+    vk::PipelineRasterizationStateCreateInfo rasterizer{
+        .depthClampEnable = vk::False,
+        .rasterizerDiscardEnable = vk::False,
+        .polygonMode = vk::PolygonMode::eFill,
+        .cullMode = vk::CullModeFlagBits::eBack,
+        .frontFace = vk::FrontFace::eClockwise,
+        .depthBiasEnable = vk::False,
+        .lineWidth = 1.0f,
+    };
+
+    // Multisampling: disabled (1 sample per pixel)
+    vk::PipelineMultisampleStateCreateInfo multisampling{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+        .sampleShadingEnable = vk::False,
+    };
+
+    // Color blending: no blending, just write RGBA
+    vk::PipelineColorBlendAttachmentState color_blend_attachment{
+        .blendEnable = vk::False,
+        .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
+                        | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+
+    vk::PipelineColorBlendStateCreateInfo color_blending{
+        .logicOpEnable = vk::False,
+        .attachmentCount = 1,
+        .pAttachments = &color_blend_attachment,
+    };
+
+    // Dynamic state: viewport and scissor set at draw time
+    std::vector dynamic_states = {
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor,
+    };
+    vk::PipelineDynamicStateCreateInfo dynamic_state{
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data(),
+    };
+
+    // Pipeline layout: no uniforms or push constants yet
+    vk::PipelineLayoutCreateInfo pipeline_layout_info;
+    pipeline_layout_ = vk::raii::PipelineLayout(device_, pipeline_layout_info);
   }
 
   [[nodiscard]] vk::raii::ShaderModule CreateShaderModule(const std::vector<char>& code) const {
