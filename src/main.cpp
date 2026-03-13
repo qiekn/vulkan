@@ -43,6 +43,10 @@ private:
   vk::raii::CommandPool command_pool_ = nullptr;
   vk::raii::CommandBuffer command_buffer_ = nullptr;
 
+  vk::raii::Semaphore present_complete_semaphore_ = nullptr;
+  vk::raii::Semaphore render_finished_semaphore_ = nullptr;
+  vk::raii::Fence draw_fence_ = nullptr;
+
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
 
@@ -72,12 +76,15 @@ private:
     CreateGraphicsPipeline();
     CreateCommandPool();
     CreateCommandBuffer();
+    CreateSyncObjects();
   }
 
   void MainLoop() {
     while (!glfwWindowShouldClose(window_)) {
       glfwPollEvents();
+      DrawFrame();
     }
+    device_.waitIdle();
   }
 
   void Cleanup() {
@@ -219,6 +226,7 @@ private:
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
     bool supports_required_features =
         features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+        features.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 &&
         features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
 
     return supports_vulkan_1_3 && supports_graphics && supports_required_extensions && supports_required_features;
@@ -254,7 +262,7 @@ private:
                        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> feature_chain = {
         {},
         {.shaderDrawParameters = true},
-        {.dynamicRendering = true},
+        {.synchronization2 = true, .dynamicRendering = true},
         {.extendedDynamicState = true},
     };
 
@@ -472,6 +480,135 @@ private:
     };
     command_buffer_ = std::move(vk::raii::CommandBuffers(device_, alloc_info).front());
   }
+
+  // ---------------------------------------------------------------------------: Synchronization
+
+  void CreateSyncObjects() {
+    present_complete_semaphore_ = vk::raii::Semaphore(device_, vk::SemaphoreCreateInfo());
+    render_finished_semaphore_ = vk::raii::Semaphore(device_, vk::SemaphoreCreateInfo());
+    draw_fence_ = vk::raii::Fence(device_, {.flags = vk::FenceCreateFlagBits::eSignaled});
+  }
+
+  // ---------------------------------------------------------------------------: Drawing
+
+  void RecordCommandBuffer(uint32_t image_index) {
+    command_buffer_.begin({});
+
+    TransitionImageLayout(
+        image_index,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        {},
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+
+    vk::ClearValue clear_color = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+    vk::RenderingAttachmentInfo color_attachment{
+        .imageView = swapchain_image_views_[image_index],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = clear_color,
+    };
+    vk::RenderingInfo rendering_info{
+        .renderArea = {.offset = {0, 0}, .extent = swapchain_extent_},
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment,
+    };
+
+    command_buffer_.beginRendering(rendering_info);
+    command_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline_);
+    command_buffer_.setViewport(0, vk::Viewport(0.0f, 0.0f,
+        static_cast<float>(swapchain_extent_.width),
+        static_cast<float>(swapchain_extent_.height), 0.0f, 1.0f));
+    command_buffer_.setScissor(0, vk::Rect2D({0, 0}, swapchain_extent_));
+    command_buffer_.draw(3, 1, 0, 0);
+    command_buffer_.endRendering();
+
+    TransitionImageLayout(
+        image_index,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::ImageLayout::ePresentSrcKHR,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        {},
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits2::eBottomOfPipe);
+
+    command_buffer_.end();
+  }
+
+  void TransitionImageLayout(
+      uint32_t image_index,
+      vk::ImageLayout old_layout,
+      vk::ImageLayout new_layout,
+      vk::AccessFlags2 src_access,
+      vk::AccessFlags2 dst_access,
+      vk::PipelineStageFlags2 src_stage,
+      vk::PipelineStageFlags2 dst_stage) {
+    vk::ImageMemoryBarrier2 barrier{
+        .srcStageMask = src_stage,
+        .srcAccessMask = src_access,
+        .dstStageMask = dst_stage,
+        .dstAccessMask = dst_access,
+        .oldLayout = old_layout,
+        .newLayout = new_layout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = swapchain_images_[image_index],
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+    command_buffer_.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    });
+  }
+
+  void DrawFrame() {
+    graphics_queue_.waitIdle();
+
+    auto [result, image_index] = swapchain_.acquireNextImage(UINT64_MAX, *present_complete_semaphore_, nullptr);
+    RecordCommandBuffer(image_index);
+
+    device_.resetFences(*draw_fence_);
+    vk::PipelineStageFlags wait_stage(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    vk::SubmitInfo submit_info{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*present_complete_semaphore_,
+        .pWaitDstStageMask = &wait_stage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*command_buffer_,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*render_finished_semaphore_,
+    };
+    graphics_queue_.submit(submit_info, *draw_fence_);
+
+    result = device_.waitForFences(*draw_fence_, vk::True, UINT64_MAX);
+    if (result != vk::Result::eSuccess) {
+      throw std::runtime_error("Failed to wait for draw fence!");
+    }
+
+    vk::PresentInfoKHR present_info{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*render_finished_semaphore_,
+        .swapchainCount = 1,
+        .pSwapchains = &*swapchain_,
+        .pImageIndices = &image_index,
+    };
+    result = graphics_queue_.presentKHR(present_info);
+    if (result == vk::Result::eSuboptimalKHR) {
+      std::cout << "vk::Queue::presentKHR returned vk::Result::eSuboptimalKHR!" << std::endl;
+    }
+  }
+
+  // ---------------------------------------------------------------------------: Utilities
 
   [[nodiscard]] vk::raii::ShaderModule CreateShaderModule(const std::vector<char>& code) const {
     vk::ShaderModuleCreateInfo create_info{
