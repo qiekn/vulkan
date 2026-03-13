@@ -38,6 +38,7 @@ private:
   vk::Extent2D swapchain_extent_;
   std::vector<vk::raii::ImageView> swapchain_image_views_;
   vk::raii::PipelineLayout pipeline_layout_ = nullptr;
+  vk::raii::Pipeline graphics_pipeline_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -428,6 +429,24 @@ private:
     // Pipeline layout: no uniforms or push constants yet
     vk::PipelineLayoutCreateInfo pipeline_layout_info;
     pipeline_layout_ = vk::raii::PipelineLayout(device_, pipeline_layout_info);
+
+    vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+        // GraphicsPipelineCreateInfo
+        {.stageCount = 2,
+         .pStages = shader_stages,
+         .pVertexInputState = &vertex_input_info,
+         .pInputAssemblyState = &input_assembly,
+         .pViewportState = &viewport_state,
+         .pRasterizationState = &rasterizer,
+         .pMultisampleState = &multisampling,
+         .pColorBlendState = &color_blending,
+         .pDynamicState = &dynamic_state,
+         .layout = pipeline_layout_,
+         .renderPass = nullptr},
+        // PipelineRenderingCreateInfo
+        {.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapchain_format_.format}};
+
+    graphics_pipeline_ = vk::raii::Pipeline(device_, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
   }
 
   [[nodiscard]] vk::raii::ShaderModule CreateShaderModule(const std::vector<char>& code) const {
