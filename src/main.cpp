@@ -31,6 +31,7 @@ private:
   vk::raii::PhysicalDevice physical_device_ = nullptr;
   vk::raii::Device device_ = nullptr;
   vk::raii::Queue graphics_queue_ = nullptr;
+  uint32_t graphics_queue_family_ = 0;
   vk::raii::SurfaceKHR surface_ = nullptr;
   vk::raii::SwapchainKHR swapchain_ = nullptr;
   std::vector<vk::Image> swapchain_images_;
@@ -39,6 +40,8 @@ private:
   std::vector<vk::raii::ImageView> swapchain_image_views_;
   vk::raii::PipelineLayout pipeline_layout_ = nullptr;
   vk::raii::Pipeline graphics_pipeline_ = nullptr;
+  vk::raii::CommandPool command_pool_ = nullptr;
+  vk::raii::CommandBuffer command_buffer_ = nullptr;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -67,6 +70,8 @@ private:
     CreateSwapchain();
     CreateImageViews();
     CreateGraphicsPipeline();
+    CreateCommandPool();
+    CreateCommandBuffer();
   }
 
   void MainLoop() {
@@ -233,12 +238,12 @@ private:
   }
 
   void CreateLogicalDevice() {
-    uint32_t graphics_family = FindGraphicsQueueFamily();
+    graphics_queue_family_ = FindGraphicsQueueFamily();
 
     float queue_priority = 0.5f;
 
     vk::DeviceQueueCreateInfo queue_create_info{
-        .queueFamilyIndex = graphics_family,
+        .queueFamilyIndex = graphics_queue_family_,
         .queueCount = 1,
         .pQueuePriorities = &queue_priority,
     };
@@ -263,7 +268,7 @@ private:
 
 
     device_ = vk::raii::Device(physical_device_, create_info);
-    graphics_queue_ = vk::raii::Queue(device_, graphics_family, 0);
+    graphics_queue_ = vk::raii::Queue(device_, graphics_queue_family_, 0);
   }
 
   // ---------------------------------------------------------------------------: Surface
@@ -447,6 +452,25 @@ private:
         {.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapchain_format_.format}};
 
     graphics_pipeline_ = vk::raii::Pipeline(device_, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+  }
+
+  // ---------------------------------------------------------------------------: Command Pool & Buffer
+
+  void CreateCommandPool() {
+    vk::CommandPoolCreateInfo pool_info{
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphics_queue_family_,
+    };
+    command_pool_ = vk::raii::CommandPool(device_, pool_info);
+  }
+
+  void CreateCommandBuffer() {
+    vk::CommandBufferAllocateInfo alloc_info{
+        .commandPool = command_pool_,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+    command_buffer_ = std::move(vk::raii::CommandBuffers(device_, alloc_info).front());
   }
 
   [[nodiscard]] vk::raii::ShaderModule CreateShaderModule(const std::vector<char>& code) const {
