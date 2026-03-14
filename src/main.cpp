@@ -182,7 +182,6 @@ private:
     debug_messenger_ = instance_.createDebugUtilsMessengerEXT(create_info);
   }
 
-
   static vk::Bool32 DebugCallback(
       vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
       vk::DebugUtilsMessageTypeFlagsEXT type,
