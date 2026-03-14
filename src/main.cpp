@@ -582,12 +582,17 @@ private:
   }
 
   void DrawFrame() {
-    graphics_queue_.waitIdle();
+    auto fence_result = device_.waitForFences(*in_flight_fences_[frame_index_], vk::True, UINT64_MAX);
+    if (fence_result != vk::Result::eSuccess) {
+      throw std::runtime_error("Failed to wait for draw fence!");
+    }
+    device_.resetFences(*in_flight_fences_[frame_index_]);
 
     auto [result, image_index] = swapchain_.acquireNextImage(UINT64_MAX, *present_complete_semaphores_[frame_index_], nullptr);
+
+    command_buffers_[frame_index_].reset();
     RecordCommandBuffer(image_index);
 
-    device_.resetFences(*in_flight_fences_[frame_index_]);
     vk::PipelineStageFlags wait_stage(vk::PipelineStageFlagBits::eColorAttachmentOutput);
     vk::SubmitInfo submit_info{
         .waitSemaphoreCount = 1,
@@ -599,11 +604,6 @@ private:
         .pSignalSemaphores = &*render_finished_semaphores_[image_index],
     };
     graphics_queue_.submit(submit_info, *in_flight_fences_[frame_index_]);
-
-    result = device_.waitForFences(*in_flight_fences_[frame_index_], vk::True, UINT64_MAX);
-    if (result != vk::Result::eSuccess) {
-      throw std::runtime_error("Failed to wait for draw fence!");
-    }
 
     vk::PresentInfoKHR present_info{
         .waitSemaphoreCount = 1,
