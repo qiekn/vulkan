@@ -6,3 +6,4 @@ src = "src"
 
 [output.html]
 git-repository-url = "https://github.com/qiekn/vulkan"
+additional-css = ["src/custom.css"]
