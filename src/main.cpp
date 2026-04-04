@@ -49,6 +49,7 @@ private:
   std::vector<vk::raii::Semaphore> render_finished_semaphores_;
   std::vector<vk::raii::Fence> in_flight_fences_;
   uint32_t frame_index_{0};
+  bool framebuffer_resized_ = false;
 
   static constexpr uint32_t kWidth = 1200;
   static constexpr uint32_t kHeight = 900;
@@ -64,8 +65,14 @@ private:
   void InitWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window_ = glfwCreateWindow(kWidth, kHeight, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(window_, this);
+    glfwSetFramebufferSizeCallback(window_, FramebufferResizeCallback);
+  }
+
+  static void FramebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    auto* app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+    app->framebuffer_resized_ = true;
   }
 
   void InitVulkan() {
@@ -91,8 +98,30 @@ private:
   }
 
   void Cleanup() {
+    CleanupSwapchain();
     glfwDestroyWindow(window_);
     glfwTerminate();
+  }
+
+  void CleanupSwapchain() {
+    swapchain_image_views_.clear();
+    swapchain_ = nullptr;
+  }
+
+  void RecreateSwapchain() {
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(window_, &width, &height);
+    while (width == 0 || height == 0) {
+      glfwGetFramebufferSize(window_, &width, &height);
+      glfwWaitEvents();
+    }
+
+    device_.waitIdle();
+
+    CleanupSwapchain();
+    CreateSwapchain();
+    CreateImageViews();
   }
 
   // ---------------------------------------------------------------------------: Instance
@@ -586,10 +615,25 @@ private:
     if (fence_result != vk::Result::eSuccess) {
       throw std::runtime_error("Failed to wait for draw fence!");
     }
+
+    uint32_t image_index = 0;
+    vk::Result result = vk::Result::eSuccess;
+    try {
+      std::tie(result, image_index) = swapchain_.acquireNextImage(UINT64_MAX, *present_complete_semaphores_[frame_index_], nullptr);
+      if (result == vk::Result::eSuboptimalKHR) {
+        framebuffer_resized_ = false;
+        RecreateSwapchain();
+        return;
+      }
+      if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to acquire swapchain image!");
+      }
+    } catch (const vk::OutOfDateKHRError&) {
+      RecreateSwapchain();
+      return;
+    }
+
     device_.resetFences(*in_flight_fences_[frame_index_]);
-
-    auto [result, image_index] = swapchain_.acquireNextImage(UINT64_MAX, *present_complete_semaphores_[frame_index_], nullptr);
-
     command_buffers_[frame_index_].reset();
     RecordCommandBuffer(image_index);
 
@@ -612,9 +656,20 @@ private:
         .pSwapchains = &*swapchain_,
         .pImageIndices = &image_index,
     };
-    result = graphics_queue_.presentKHR(present_info);
-    if (result == vk::Result::eSuboptimalKHR) {
-      std::cout << "vk::Queue::presentKHR returned vk::Result::eSuboptimalKHR!" << std::endl;
+    try {
+      auto result = graphics_queue_.presentKHR(present_info);
+      if (result == vk::Result::eSuboptimalKHR || framebuffer_resized_) {
+        framebuffer_resized_ = false;
+        RecreateSwapchain();
+        return;
+      }
+      if (result != vk::Result::eSuccess) {
+        throw std::runtime_error("Failed to present swapchain image!");
+      }
+    } catch (const vk::OutOfDateKHRError&) {
+      framebuffer_resized_ = false;
+      RecreateSwapchain();
+      return;
     }
 
     frame_index_ = (frame_index_ + 1) % kMAX_FRAMES_IN_FLIGHT;
