@@ -69,6 +69,8 @@ private:
   std::vector<vk::raii::ImageView> swapchain_image_views_;
   vk::raii::PipelineLayout pipeline_layout_ = nullptr;
   vk::raii::Pipeline graphics_pipeline_ = nullptr;
+  vk::raii::Buffer vertex_buffer_ = nullptr;
+  vk::raii::DeviceMemory vertex_buffer_memory_ = nullptr;
   vk::raii::CommandPool command_pool_ = nullptr;
   std::vector<vk::raii::CommandBuffer> command_buffers_;
 
@@ -112,6 +114,7 @@ private:
     CreateImageViews();
     CreateGraphicsPipeline();
     CreateCommandPool();
+    CreateVertexBuffer();
     CreateCommandBuffers();
     CreateSyncObjects();
   }
@@ -562,6 +565,42 @@ private:
     }
   }
 
+  // ---------------------------------------------------------------------------: Vertex Buffer
+
+  uint32_t FindMemoryType(uint32_t type_filter, vk::MemoryPropertyFlags properties) {
+    auto mem_properties = physical_device_.getMemoryProperties();
+    for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
+      if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+        return i;
+      }
+    }
+    throw std::runtime_error("Failed to find suitable memory type!");
+  }
+
+  void CreateVertexBuffer() {
+    vk::BufferCreateInfo buffer_info{
+        .size = sizeof(kVertices[0]) * kVertices.size(),
+        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
+    vertex_buffer_ = vk::raii::Buffer(device_, buffer_info);
+
+    auto mem_requirements = vertex_buffer_.getMemoryRequirements();
+    vk::MemoryAllocateInfo alloc_info{
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = FindMemoryType(
+            mem_requirements.memoryTypeBits,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+    };
+    vertex_buffer_memory_ = vk::raii::DeviceMemory(device_, alloc_info);
+
+    vertex_buffer_.bindMemory(*vertex_buffer_memory_, 0);
+
+    void* data = vertex_buffer_memory_.mapMemory(0, buffer_info.size);
+    memcpy(data, kVertices.data(), buffer_info.size);
+    vertex_buffer_memory_.unmapMemory();
+  }
+
   // ---------------------------------------------------------------------------: Drawing
 
   void RecordCommandBuffer(uint32_t image_index) {
@@ -593,11 +632,12 @@ private:
 
     command_buffers_[frame_index_].beginRendering(rendering_info);
     command_buffers_[frame_index_].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline_);
+    command_buffers_[frame_index_].bindVertexBuffers(0, *vertex_buffer_, {0});
     command_buffers_[frame_index_].setViewport(0, vk::Viewport(0.0f, 0.0f,
         static_cast<float>(swapchain_extent_.width),
         static_cast<float>(swapchain_extent_.height), 0.0f, 1.0f));
     command_buffers_[frame_index_].setScissor(0, vk::Rect2D({0, 0}, swapchain_extent_));
-    command_buffers_[frame_index_].draw(3, 1, 0, 0);
+    command_buffers_[frame_index_].draw(static_cast<uint32_t>(kVertices.size()), 1, 0, 0);
     command_buffers_[frame_index_].endRendering();
 
     TransitionImageLayout(
