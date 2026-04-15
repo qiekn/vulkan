@@ -3,6 +3,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 import vulkan;
 import std;
@@ -14,6 +15,32 @@ constexpr bool kEnableValidationLayers = true;
 #endif
 
 constexpr size_t kMAX_FRAMES_IN_FLIGHT = 2;
+
+struct Vertex {
+  glm::vec2 pos;
+  glm::vec3 color;
+
+  static vk::VertexInputBindingDescription GetBindingDescription() {
+    return {
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
+  }
+
+  static std::array<vk::VertexInputAttributeDescription, 2> GetAttributeDescriptions() {
+    return {{
+        {.location = 0, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, pos)},
+        {.location = 1, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, color)},
+    }};
+  }
+};
+
+const std::vector<Vertex> kVertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+};
 
 class HelloTriangleApplication {
 public:
@@ -416,8 +443,15 @@ private:
         {.stage = vk::ShaderStageFlagBits::eFragment, .module = shader_module, .pName = "fragMain"},
     };
 
-    // Vertex input: no vertex data for now (hardcoded in shader)
-    vk::PipelineVertexInputStateCreateInfo vertex_input_info;
+    // Vertex input: describe how to read Vertex struct from vertex buffer
+    auto binding_description = Vertex::GetBindingDescription();
+    auto attribute_descriptions = Vertex::GetAttributeDescriptions();
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info{
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &binding_description,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size()),
+        .pVertexAttributeDescriptions = attribute_descriptions.data(),
+    };
 
     // Input assembly: draw triangles from every 3 vertices
     vk::PipelineInputAssemblyStateCreateInfo input_assembly{
