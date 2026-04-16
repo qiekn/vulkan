@@ -565,7 +565,7 @@ private:
     }
   }
 
-  // ---------------------------------------------------------------------------: Vertex Buffer
+  // ---------------------------------------------------------------------------: Buffer Helpers
 
   uint32_t FindMemoryType(uint32_t type_filter, vk::MemoryPropertyFlags properties) {
     auto mem_properties = physical_device_.getMemoryProperties();
@@ -577,28 +577,66 @@ private:
     throw std::runtime_error("Failed to find suitable memory type!");
   }
 
-  void CreateVertexBuffer() {
-    vk::BufferCreateInfo buffer_info{
-        .size = sizeof(kVertices[0]) * kVertices.size(),
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
+  std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> CreateBuffer(vk::DeviceSize size,
+                                                                   vk::BufferUsageFlags usage,
+                                                                   vk::MemoryPropertyFlags properties) {
+    vk::raii::Buffer buffer(device_, vk::BufferCreateInfo{
+        .size = size,
+        .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
-    };
-    vertex_buffer_ = vk::raii::Buffer(device_, buffer_info);
+    });
 
-    auto mem_requirements = vertex_buffer_.getMemoryRequirements();
-    vk::MemoryAllocateInfo alloc_info{
+    auto mem_requirements = buffer.getMemoryRequirements();
+    vk::raii::DeviceMemory memory(device_, vk::MemoryAllocateInfo{
         .allocationSize = mem_requirements.size,
-        .memoryTypeIndex = FindMemoryType(
-            mem_requirements.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+        .memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, properties),
+    });
+
+    buffer.bindMemory(*memory, 0);
+    return {std::move(buffer), std::move(memory)};
+  }
+
+  void CopyBuffer(vk::raii::Buffer& src, vk::raii::Buffer& dst, vk::DeviceSize size) {
+    vk::raii::CommandBuffer cmd_buf = std::move(vk::raii::CommandBuffers(device_, vk::CommandBufferAllocateInfo{
+        .commandPool = command_pool_,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    }).front());
+
+    cmd_buf.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    cmd_buf.copyBuffer(*src, *dst, vk::BufferCopy{.size = size});
+    cmd_buf.end();
+
+    vk::SubmitInfo submit_info{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*cmd_buf,
     };
-    vertex_buffer_memory_ = vk::raii::DeviceMemory(device_, alloc_info);
+    graphics_queue_.submit(submit_info);
+    graphics_queue_.waitIdle();
+  }
 
-    vertex_buffer_.bindMemory(*vertex_buffer_memory_, 0);
+  // ---------------------------------------------------------------------------: Vertex Buffer
 
-    void* data = vertex_buffer_memory_.mapMemory(0, buffer_info.size);
-    memcpy(data, kVertices.data(), buffer_info.size);
-    vertex_buffer_memory_.unmapMemory();
+  void CreateVertexBuffer() {
+    vk::DeviceSize buffer_size = sizeof(kVertices[0]) * kVertices.size();
+
+    // Staging buffer: CPU-visible, used as transfer source
+    auto [staging_buffer, staging_memory] = CreateBuffer(
+        buffer_size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+    void* data = staging_memory.mapMemory(0, buffer_size);
+    memcpy(data, kVertices.data(), buffer_size);
+    staging_memory.unmapMemory();
+
+    // Device-local buffer: GPU-only high-speed memory, used as transfer destination + vertex buffer
+    std::tie(vertex_buffer_, vertex_buffer_memory_) = CreateBuffer(
+        buffer_size,
+        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+    CopyBuffer(staging_buffer, vertex_buffer_, buffer_size);
   }
 
   // ---------------------------------------------------------------------------: Drawing
