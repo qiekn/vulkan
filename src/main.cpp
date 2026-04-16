@@ -37,9 +37,15 @@ struct Vertex {
 };
 
 const std::vector<Vertex> kVertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+};
+
+const std::vector<uint16_t> kIndices = {
+    0, 1, 2,
+    2, 3, 0,
 };
 
 class HelloTriangleApplication {
@@ -71,6 +77,8 @@ private:
   vk::raii::Pipeline graphics_pipeline_ = nullptr;
   vk::raii::Buffer vertex_buffer_ = nullptr;
   vk::raii::DeviceMemory vertex_buffer_memory_ = nullptr;
+  vk::raii::Buffer index_buffer_ = nullptr;
+  vk::raii::DeviceMemory index_buffer_memory_ = nullptr;
   vk::raii::CommandPool command_pool_ = nullptr;
   std::vector<vk::raii::CommandBuffer> command_buffers_;
 
@@ -115,6 +123,7 @@ private:
     CreateGraphicsPipeline();
     CreateCommandPool();
     CreateVertexBuffer();
+    CreateIndexBuffer();
     CreateCommandBuffers();
     CreateSyncObjects();
   }
@@ -639,6 +648,28 @@ private:
     CopyBuffer(staging_buffer, vertex_buffer_, buffer_size);
   }
 
+  // ---------------------------------------------------------------------------: Index Buffer
+
+  void CreateIndexBuffer() {
+    vk::DeviceSize buffer_size = sizeof(kIndices[0]) * kIndices.size();
+
+    auto [staging_buffer, staging_memory] = CreateBuffer(
+        buffer_size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+    void* data = staging_memory.mapMemory(0, buffer_size);
+    memcpy(data, kIndices.data(), buffer_size);
+    staging_memory.unmapMemory();
+
+    std::tie(index_buffer_, index_buffer_memory_) = CreateBuffer(
+        buffer_size,
+        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+    CopyBuffer(staging_buffer, index_buffer_, buffer_size);
+  }
+
   // ---------------------------------------------------------------------------: Drawing
 
   void RecordCommandBuffer(uint32_t image_index) {
@@ -671,11 +702,12 @@ private:
     command_buffers_[frame_index_].beginRendering(rendering_info);
     command_buffers_[frame_index_].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphics_pipeline_);
     command_buffers_[frame_index_].bindVertexBuffers(0, *vertex_buffer_, {0});
+    command_buffers_[frame_index_].bindIndexBuffer(*index_buffer_, 0, vk::IndexType::eUint16);
     command_buffers_[frame_index_].setViewport(0, vk::Viewport(0.0f, 0.0f,
         static_cast<float>(swapchain_extent_.width),
         static_cast<float>(swapchain_extent_.height), 0.0f, 1.0f));
     command_buffers_[frame_index_].setScissor(0, vk::Rect2D({0, 0}, swapchain_extent_));
-    command_buffers_[frame_index_].draw(static_cast<uint32_t>(kVertices.size()), 1, 0, 0);
+    command_buffers_[frame_index_].drawIndexed(static_cast<uint32_t>(kIndices.size()), 1, 0, 0, 0);
     command_buffers_[frame_index_].endRendering();
 
     TransitionImageLayout(
