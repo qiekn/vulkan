@@ -50,7 +50,8 @@ const std::vector<uint16_t> kIndices = {
 };
 
 struct UniformBufferObject {
-  glm::mat4 model;
+  glm::vec2 qiekn; // 8 bytes  [ 8 bytes ]
+  alignas(16)glm::mat4 model;
   glm::mat4 view;
   glm::mat4 proj;
 };
