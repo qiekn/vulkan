@@ -77,6 +77,10 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCE_FILES})
 target_sources(${PROJECT_NAME} PRIVATE FILE_SET CXX_MODULES FILES ${MODULE_FILES})
 
+target_include_directories(${PROJECT_NAME} PRIVATE
+  ./deps/head-only/
+)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   Vulkan::cppm
   glfw
