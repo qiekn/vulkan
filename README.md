@@ -11,7 +11,7 @@
 
 - **平台**: Windows (MSYS2 UCRT64)
 - **编译器**: Clang 21 (C++23 Modules & LLVM libc++)
-- **构建**: CMake 3.30+ / Ninja（CMake `import std;` 需要实验性支持，不同 CMake 版本需更新 `CMakeLists.txt` 中的 UUID）
+- **构建**: CMake 3.30+ / Ninja
 - **Vulkan SDK**: 1.4.341.1
 
 ## 三方库依赖
@@ -28,9 +28,7 @@
 git clone --recursive https://github.com/qiekn/vulkan.git
 ```
 
-需根据本机环境修改 `CMakeLists.txt` 中的 `CMAKE_EXPERIMENTAL_CXX_IMPORT_STD` UUID（不同 CMake 版本不同）。
-
-需自行下载安装 [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)，确保 `VULKAN_SDK` 环境变量已设置。
+下载安装 [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)，确保 `VULKAN_SDK` 环境变量已设置。
 
 CMake 中自定义命令使用了 `slangc.exe`，需要把 VulkanSDK 的 Bin 添加到环境变量中，保证 slangc.exe，在终端下可用。可以参考下面我的 MSYS2 ZSH 配置
 
@@ -42,7 +40,6 @@ export PATH=$PATH:"/c/VulkanSDK/1.4.341.1/Bin"
 
 ```bash
 cmake -B build -G Ninja \
-  -DCMAKE_C_COMPILER=clang \
   -DCMAKE_CXX_COMPILER=clang++
 
 cmake --build build
@@ -50,5 +47,33 @@ cd build
 ./vulkan
 ```
 
-注意，`assets/shaders/shader.slang` 被编译为 bytecode 后放在了 `build/assets/shaders/shader.spv`，所以我们需要再 `build` 目录下执行 `./vulkan.exe`，在项目根目录下 `./build/vulkan.exe` 会由于找不到 `shader.spv` 而报错。
+注意，`assets/shaders/shader.slang` 被编译为 bytecode 后放在了 `build/assets/shaders/shader.spv` (cmake custom command)，所以我们需要再 `build` 目录下执行 `./vulkan.exe`，在项目根目录下 `./build/vulkan.exe` 会由于找不到 `shader.spv` 而报错 (可以看我的 `run.sh`)。
 
+## 额外说明
+
+### cmake import std
+
+关于 `import std;`: 这是 CMake 的实验性功能，不同 CMake 版本需要在 `CMakeLists.txt` 中指定对应的 UUID，不过我已经添加了 cmake 脚本自动设置 UUID，见 [cmake/EnableCxxImportStd.cmake](./cmake/EnableCxxImportStd.cmake) 。
+
+所以这里你并不需要做什么。
+
+### libc++
+
+我 CMake 里指定了 `CMAKE_CXX_FLAGS` ，使用了 LLVM 的标准库实现，即 `-stdlib=libc++`。这其实没什么道理，只是我已经用了 clang，平时很多时候用 macOS，另外考虑到只有它让我在 c++23 中使用 `std::println`，gnu / msvc 不让用。所有就干脆用了 `libc++`，如果你没有安装 `libc++` 而 CMake 编译报错，可以去掉下面一行。我代码中并没有使用 `std::println`
+
+```cmake
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+```
+
+### slangc
+
+Shader 的编译用到 `slangc`，我在 CMakeList.txt 中设置了自定义命令来编译 slang shader，需要保证 slangc 在环境变量中。
+
+```bash
+export PATH=$PATH:"/c/VulkanSDK/1.4.341.1/Bin"
+```
+
+```bash
+$ which slangc
+/c/VulkanSDK/1.4.341.1/Bin/slangc
+```
