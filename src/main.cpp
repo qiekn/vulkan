@@ -92,7 +92,7 @@ private:
   vk::raii::DeviceMemory index_buffer_memory_ = nullptr;
 
   std::vector<vk::raii::Buffer> uniform_buffers_;
-  std::vector<vk::raii::DeviceMemory> uniform_buffer_memory_;
+  std::vector<vk::raii::DeviceMemory> uniform_buffers_memory_;
   std::vector<void*> uniform_buffers_mapped_;
   vk::raii::DescriptorPool descriptor_pool_ = nullptr;
   std::vector<vk::raii::DescriptorSet> descriptor_sets_;
@@ -709,7 +709,7 @@ private:
 
   void CreateUniformBuffers() {
     uniform_buffers_.clear();
-    uniform_buffer_memory_.clear();
+    uniform_buffers_memory_.clear();
     uniform_buffers_mapped_.clear();
 
     for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
@@ -721,8 +721,8 @@ private:
           vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
       uniform_buffers_.emplace_back(std::move(buffer));
-      uniform_buffer_memory_.emplace_back(std::move(memory));
-      uniform_buffers_mapped_.emplace_back(uniform_buffer_memory_[i].mapMemory(0, buffer_size));
+      uniform_buffers_memory_.emplace_back(std::move(memory));
+      uniform_buffers_mapped_.emplace_back(uniform_buffers_memory_[i].mapMemory(0, buffer_size));
     }
   }
 
