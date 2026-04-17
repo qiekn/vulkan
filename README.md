@@ -47,8 +47,6 @@ cd build
 ./vulkan
 ```
 
-注意，`assets/shaders/shader.slang` 被编译为 bytecode 后放在了 `build/assets/shaders/shader.spv` (cmake custom command)，所以我们需要再 `build` 目录下执行 `./vulkan.exe`，在项目根目录下 `./build/vulkan.exe` 会由于找不到 `shader.spv` 而报错 (可以看我的 `run.sh`)。
-
 ## 额外说明
 
 ### cmake import std
@@ -76,4 +74,12 @@ export PATH=$PATH:"/c/VulkanSDK/1.4.341.1/Bin"
 ```bash
 $ which slangc
 /c/VulkanSDK/1.4.341.1/Bin/slangc
+```
+### assets folder
+
+CMake 会自动同步 `assets/` 到 `build/assets/`，并将 `assets/shaders/shader.slang` 编译到 `build/assets/shaders/slang.spv`
+
+```
+cd build
+./vulkan.exe
 ```

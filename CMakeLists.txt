@@ -15,7 +15,9 @@ set(CMAKE_CXX_MODULE_STD ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # -----------------------------------------------------------------------------: Config
-set(SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/assets/shaders)
+set(ASSETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+set(ASSETS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/assets)
+set(SHADERS_BINARY_DIR ${ASSETS_BINARY_DIR}/shaders)
 
 # -----------------------------------------------------------------------------: Dependences
 find_package(Vulkan REQUIRED)
@@ -49,23 +51,23 @@ target_sources(VulkanCppModule
 function (add_slang_shader_target TARGET)
   cmake_parse_arguments ("SHADER" "" "" "SOURCES" ${ARGN})
 
-  set (SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/assets/shaders)
-  file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+  if (NOT SHADER_SOURCES)
+    message(FATAL_ERROR "add_slang_shader_target(${TARGET}) requires SOURCES")
+  endif()
 
   set (ENTRY_POINTS -entry vertMain -entry fragMain)
+  set (SLANG_OUTPUT ${SHADERS_BINARY_DIR}/slang.spv)
+
   add_custom_command (
-          OUTPUT ${SHADERS_DIR}
-          COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
-  )
-  add_custom_command (
-          OUTPUT  ${SHADERS_DIR}/slang.spv
-          COMMAND slangc ${SHADER_SOURCES} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o slang.spv
-          WORKING_DIRECTORY ${SHADERS_DIR}
-          DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
+          OUTPUT ${SLANG_OUTPUT}
+          COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_BINARY_DIR}
+          COMMAND slangc ${SHADER_SOURCES} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o ${SLANG_OUTPUT}
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+          DEPENDS ${SHADER_SOURCES}
           COMMENT "Compiling Slang Shaders"
           VERBATIM
   )
-  add_custom_target (${TARGET} DEPENDS ${SHADERS_DIR}/slang.spv)
+  add_custom_target (${TARGET} DEPENDS ${SLANG_OUTPUT})
 endfunction()
 
 # -----------------------------------------------------------------------------: Targets
@@ -88,5 +90,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   tinyobjloader
 )
 
+add_custom_target(sync_assets ALL
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${ASSETS_BINARY_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${ASSETS_SOURCE_DIR} ${ASSETS_BINARY_DIR}
+  COMMENT "Syncing runtime assets to build/assets"
+)
+
 add_slang_shader_target(shader SOURCES ${SHADER_SLANG_SOURCES})
-add_dependencies(${PROJECT_NAME} shader)
+add_dependencies(${PROJECT_NAME} shader sync_assets)
