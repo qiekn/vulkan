@@ -1,6 +1,6 @@
 # Vulkan learning notes
 
-跟随 [Vulkan Tutorial](https://docs.vulkan.org/tutorial/latest/) 学习 Vulkan。
+跟随 [Khronos Vulkan® Tutorial](https://docs.vulkan.org/tutorial/latest/) 学习 Vulkan。
 
 - [个人 Notion 随笔](https://qiekn.notion.site/vulkan)
 - [在线 MdBook 笔记](https://qiekn.github.io/vulkan)（主要根据 Claude Code 对话的上下文总结）
