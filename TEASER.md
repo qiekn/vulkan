@@ -7,3 +7,7 @@
 <img src="https://github.com/user-attachments/assets/efd6bad9-5415-4c94-8fcc-48c039fcef61" style="max-width:100%; height:auto;" />
 
 <img src="https://github.com/user-attachments/assets/6e413229-44f4-4729-868f-09195c3e10df" style="max-width:100%; height:auto;" />
+
+## Depth buffering
+
+![depth](https://github.com/user-attachments/assets/98ef6566-7417-49e9-b138-5e39adcba00b)
