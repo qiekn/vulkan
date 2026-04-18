@@ -22,8 +22,8 @@ constexpr bool kEnableValidationLayers = true;
 
 constexpr size_t kMAX_FRAMES_IN_FLIGHT = 2;
 
-const std::string kModelPath = "assets/models/viking_room.obj";
-const std::string kTexturePath = "assets/textures/viking_room.png";
+const std::string kModelPath = "assets/models/marry.obj";
+const std::string kTexturePath = "assets/textures/marry.png";
 
 struct Vertex {
   glm::vec3 pos;
@@ -1073,11 +1073,11 @@ private:
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - s_start_time).count();
 
     UniformBufferObject ubo;
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = lookAt(glm::vec3(0.0f, 1.5f, 5.0f), glm::vec3(0.0f, 1.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f),
                                 static_cast<float>(swapchain_extent_.width) / static_cast<float>(swapchain_extent_.height),
-                                0.1f, 10.0f);
+                                0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
     memcpy(uniform_buffers_mapped_[image_index], &ubo, sizeof(ubo));
   }
