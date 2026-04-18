@@ -23,6 +23,7 @@ constexpr size_t kMAX_FRAMES_IN_FLIGHT = 2;
 struct Vertex {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 tex_coord;
 
   static vk::VertexInputBindingDescription GetBindingDescription() {
     return {
@@ -32,19 +33,20 @@ struct Vertex {
     };
   }
 
-  static std::array<vk::VertexInputAttributeDescription, 2> GetAttributeDescriptions() {
+  static std::array<vk::VertexInputAttributeDescription, 3> GetAttributeDescriptions() {
     return {{
         {.location = 0, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, pos)},
         {.location = 1, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, color)},
+        {.location = 2, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, tex_coord)},
     }};
   }
 };
 
 const std::vector<Vertex> kVertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
 };
 
 const std::vector<uint16_t> kIndices = {
@@ -476,9 +478,14 @@ private:
   // ----------------------------------------------------------------------------: Uniforms
 
   void CreateDescriptorSetLayout() {
-    vk::DescriptorSetLayoutBinding ubo_layout_binding(0, vk::DescriptorType::eUniformBuffer,
-                                                      1, vk::ShaderStageFlagBits::eVertex, nullptr);
-    vk::DescriptorSetLayoutCreateInfo layout_info{.bindingCount = 1, .pBindings = &ubo_layout_binding};
+    std::array bindings = {
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),
+        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),
+    };
+    vk::DescriptorSetLayoutCreateInfo layout_info{
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data(),
+    };
     descriptor_set_layout_ = vk::raii::DescriptorSetLayout(device_, layout_info);
   }
 
@@ -782,7 +789,7 @@ private:
     int tex_width = 0;
     int tex_height = 0;
     int tex_channels = 0;
-    stbi_uc* pixels = stbi_load("assets/textures/texture.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load("assets/textures/cat.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
     if (pixels == nullptr) {
       throw std::runtime_error("Failed to load texture image!");
     }
@@ -924,15 +931,21 @@ private:
   }
 
   void CreateDescriptorPool() {
-    vk::DescriptorPoolSize pool_size{
-        .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
+    std::array pool_sizes = {
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
+        },
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
+        },
     };
     vk::DescriptorPoolCreateInfo pool_info{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
-        .poolSizeCount = 1,
-        .pPoolSizes = &pool_size,
+        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+        .pPoolSizes = pool_sizes.data(),
     };
     descriptor_pool_ = vk::raii::DescriptorPool(device_, pool_info);
   }
@@ -952,15 +965,30 @@ private:
           .offset = 0,
           .range = sizeof(UniformBufferObject),
       };
-      vk::WriteDescriptorSet descriptor_write{
-          .dstSet = *descriptor_sets_[i],
-          .dstBinding = 0,
-          .dstArrayElement = 0,
-          .descriptorCount = 1,
-          .descriptorType = vk::DescriptorType::eUniformBuffer,
-          .pBufferInfo = &buffer_info,
+      vk::DescriptorImageInfo image_info{
+          .sampler = *texture_sampler_,
+          .imageView = *texture_image_view_,
+          .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
       };
-      device_.updateDescriptorSets(descriptor_write, nullptr);
+      std::array descriptor_writes = {
+          vk::WriteDescriptorSet{
+              .dstSet = *descriptor_sets_[i],
+              .dstBinding = 0,
+              .dstArrayElement = 0,
+              .descriptorCount = 1,
+              .descriptorType = vk::DescriptorType::eUniformBuffer,
+              .pBufferInfo = &buffer_info,
+          },
+          vk::WriteDescriptorSet{
+              .dstSet = *descriptor_sets_[i],
+              .dstBinding = 1,
+              .dstArrayElement = 0,
+              .descriptorCount = 1,
+              .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+              .pImageInfo = &image_info,
+          },
+      };
+      device_.updateDescriptorSets(descriptor_writes, nullptr);
     }
   }
 
