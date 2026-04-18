@@ -22,6 +22,7 @@
 | [GLFW](https://github.com/glfw/glfw)                            | 窗口管理     |
 | [GLM](https://github.com/g-truc/glm)                            | 数学库       |
 | [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) | OBJ 模型加载 |
+| [stb](https://github.com/nothings/stb) (`stb_image.h`)          | 图像加载     |
 
 ## 构建运行
 
