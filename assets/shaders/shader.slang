@@ -31,5 +31,5 @@ Sampler2D tex;
 
 [shader("fragment")]
 float4 fragMain(VertexOutput inVert) : SV_Target {
-    return tex.Sample(inVert.texCoord);
+    return float4(inVert.color, 0.5f) * tex.Sample(inVert.texCoord);
 }
