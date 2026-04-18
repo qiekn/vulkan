@@ -11,3 +11,7 @@
 ## Depth buffering
 
 ![depth](https://github.com/user-attachments/assets/98ef6566-7417-49e9-b138-5e39adcba00b)
+
+## Loading model
+
+![viking room](https://github.com/user-attachments/assets/42a9be8a-e83e-4511-b991-3c035a6a8be3)

@@ -12,6 +12,7 @@
 
 import vulkan;
 import std;
+import model_loader;
 
 #ifdef NDEBUG
 constexpr bool kEnableValidationLayers = false;
@@ -20,6 +21,9 @@ constexpr bool kEnableValidationLayers = true;
 #endif
 
 constexpr size_t kMAX_FRAMES_IN_FLIGHT = 2;
+
+const std::string kModelPath = "assets/models/viking_room.obj";
+const std::string kTexturePath = "assets/textures/viking_room.png";
 
 struct Vertex {
   glm::vec3 pos;
@@ -41,23 +45,6 @@ struct Vertex {
         {.location = 2, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, tex_coord)},
     }};
   }
-};
-
-const std::vector<Vertex> kVertices = {
-    {{-0.95f, -0.95f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.95f, -0.95f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.95f, 0.95f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.95f, 0.95f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-    {{-0.95f, -0.95f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.95f, -0.95f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.95f, 0.95f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.95f, 0.95f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-};
-
-const std::vector<uint16_t> kIndices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4,
 };
 
 struct UniformBufferObject {
@@ -101,6 +88,9 @@ private:
 
   vk::raii::Buffer index_buffer_ = nullptr;
   vk::raii::DeviceMemory index_buffer_memory_ = nullptr;
+
+  std::vector<Vertex> vertices_;
+  std::vector<uint32_t> indices_;
 
   vk::raii::Image texture_image_ = nullptr;
   vk::raii::DeviceMemory texture_image_memory_ = nullptr;
@@ -165,6 +155,7 @@ private:
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
+    LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
@@ -540,7 +531,7 @@ private:
         .depthClampEnable = vk::False,
         .rasterizerDiscardEnable = vk::False,
         .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eBack,
+        .cullMode = vk::CullModeFlagBits::eNone,
         .frontFace = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable = vk::False,
         .lineWidth = 1.0f,
@@ -818,7 +809,7 @@ private:
     int tex_width = 0;
     int tex_height = 0;
     int tex_channels = 0;
-    stbi_uc* pixels = stbi_load("assets/textures/cat.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(kTexturePath.c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
     if (pixels == nullptr) {
       throw std::runtime_error("Failed to load texture image!");
     }
@@ -932,10 +923,22 @@ private:
     depth_image_view_ = CreateImageView(*depth_image_, depth_format, vk::ImageAspectFlagBits::eDepth);
   }
 
+  // ---------------------------------------------------------------------------: Load Model
+
+  void LoadModel() {
+    ObjModel obj = LoadObjModel(kModelPath);
+    vertices_.clear();
+    vertices_.reserve(obj.vertices.size());
+    for (const auto& v : obj.vertices) {
+      vertices_.push_back({.pos = v.pos, .color = v.color, .tex_coord = v.tex_coord});
+    }
+    indices_ = std::move(obj.indices);
+  }
+
   // ---------------------------------------------------------------------------: Vertex Buffer
 
   void CreateVertexBuffer() {
-    vk::DeviceSize buffer_size = sizeof(kVertices[0]) * kVertices.size();
+    vk::DeviceSize buffer_size = sizeof(vertices_[0]) * vertices_.size();
 
     // Staging buffer: CPU-visible, used as transfer source
     auto [staging_buffer, staging_memory] = CreateBuffer(
@@ -944,7 +947,7 @@ private:
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
     void* data = staging_memory.mapMemory(0, buffer_size);
-    memcpy(data, kVertices.data(), buffer_size);
+    memcpy(data, vertices_.data(), buffer_size);
     staging_memory.unmapMemory();
 
     // Device-local buffer: GPU-only high-speed memory, used as transfer destination + vertex buffer
@@ -959,7 +962,7 @@ private:
   // ---------------------------------------------------------------------------: Index Buffer
 
   void CreateIndexBuffer() {
-    vk::DeviceSize buffer_size = sizeof(kIndices[0]) * kIndices.size();
+    vk::DeviceSize buffer_size = sizeof(indices_[0]) * indices_.size();
 
     auto [staging_buffer, staging_memory] = CreateBuffer(
         buffer_size,
@@ -967,7 +970,7 @@ private:
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
     void* data = staging_memory.mapMemory(0, buffer_size);
-    memcpy(data, kIndices.data(), buffer_size);
+    memcpy(data, indices_.data(), buffer_size);
     staging_memory.unmapMemory();
 
     std::tie(index_buffer_, index_buffer_memory_) = CreateBuffer(
@@ -1137,12 +1140,12 @@ private:
         *descriptor_sets_[frame_index_],
         nullptr);
     command_buffers_[frame_index_].bindVertexBuffers(0, *vertex_buffer_, {0});
-    command_buffers_[frame_index_].bindIndexBuffer(*index_buffer_, 0, vk::IndexType::eUint16);
+    command_buffers_[frame_index_].bindIndexBuffer(*index_buffer_, 0, vk::IndexType::eUint32);
     command_buffers_[frame_index_].setViewport(0, vk::Viewport(0.0f, 0.0f,
         static_cast<float>(swapchain_extent_.width),
         static_cast<float>(swapchain_extent_.height), 0.0f, 1.0f));
     command_buffers_[frame_index_].setScissor(0, vk::Rect2D({0, 0}, swapchain_extent_));
-    command_buffers_[frame_index_].drawIndexed(static_cast<uint32_t>(kIndices.size()), 1, 0, 0, 0);
+    command_buffers_[frame_index_].drawIndexed(static_cast<uint32_t>(indices_.size()), 1, 0, 0, 0);
     command_buffers_[frame_index_].endRendering();
 
     TransitionImageLayout(

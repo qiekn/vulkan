@@ -31,20 +31,5 @@ Sampler2D tex;
 
 [shader("fragment")]
 float4 fragMain(VertexOutput inVert) : SV_Target {
-    // texCoord is [0,1]; quad center is at texCoord (0.5, 0.5)
-    float2 uv = inVert.texCoord * 2.0 - 1.0;
-    float dist = length(uv);
-
-    float fade = 0.005;
-    float outerRadius = 1.0;
-    float innerRadius = 0.0; // small center hole like a vinyl spindle (just remove, use full)
-
-    float outer = 1.0 - smoothstep(outerRadius - fade, outerRadius, dist);
-    float inner = smoothstep(innerRadius - fade, innerRadius, dist);
-    float mask = outer * inner;
-
-    if (mask < 0.001) discard;
-
-    float4 sampled = tex.Sample(inVert.texCoord);
-    return float4(sampled.rgb, sampled.a * mask);
+    return tex.Sample(inVert.texCoord);
 }
