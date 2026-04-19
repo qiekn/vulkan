@@ -15,9 +15,7 @@ Vulkan 学习项目，使用 C++23 + libc++，基于 MSYS2 UCRT64 + Clang 工具
 CMake 配置（首次或 CMakeLists.txt 变更后执行）：
 
 ```bash
-"C:/msys64/ucrt64/bin/cmake.exe" -B build -G Ninja \
-  -DCMAKE_C_COMPILER="C:/msys64/ucrt64/bin/clang.exe" \
-  -DCMAKE_CXX_COMPILER="C:/msys64/ucrt64/bin/clang++.exe"
+"C:/msys64/ucrt64/bin/cmake.exe" -B build -G Ninja -DCMAKE_CXX_COMPILER="C:/msys64/ucrt64/bin/clang++.exe"
 ```
 
 编译并运行：
