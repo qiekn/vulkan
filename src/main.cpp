@@ -1200,7 +1200,7 @@ private:
 
   // ----------------------------------------------------------------------------: Updating
 
-  void UpdateUniformBuffers(uint32_t image_index) {
+  void UpdateUniformBuffers(uint32_t frame_index) {
     static auto s_start_time = std::chrono::high_resolution_clock::now();
 
     auto current_time = std::chrono::high_resolution_clock::now();
@@ -1213,7 +1213,7 @@ private:
                                 static_cast<float>(swapchain_extent_.width) / static_cast<float>(swapchain_extent_.height),
                                 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
-    memcpy(uniform_buffers_mapped_[image_index], &ubo, sizeof(ubo));
+    memcpy(uniform_buffers_mapped_[frame_index], &ubo, sizeof(ubo));
   }
 
   // ---------------------------------------------------------------------------: Drawing
