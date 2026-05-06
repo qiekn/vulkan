@@ -109,6 +109,7 @@ private:
   std::vector<vk::raii::Buffer> uniform_buffers_;
   std::vector<vk::raii::DeviceMemory> uniform_buffers_memory_;
   std::vector<void*> uniform_buffers_mapped_;
+  std::vector<vk::DeviceAddress> uniform_buffer_addresses_;
   vk::raii::DescriptorPool descriptor_pool_ = nullptr;
   std::vector<vk::raii::DescriptorSet> descriptor_sets_;
 
@@ -344,10 +345,12 @@ private:
     auto features = device.getFeatures2<
         vk::PhysicalDeviceFeatures2,
         vk::PhysicalDeviceVulkan11Features,
+        vk::PhysicalDeviceVulkan12Features,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
     bool supports_required_features =
         features.get<vk::PhysicalDeviceFeatures2>().features.samplerAnisotropy &&
+        features.get<vk::PhysicalDeviceVulkan12Features>().bufferDeviceAddress &&
         features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
         features.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 &&
         features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
@@ -381,10 +384,12 @@ private:
 
     vk::StructureChain<vk::PhysicalDeviceFeatures2,
                        vk::PhysicalDeviceVulkan11Features,
+                       vk::PhysicalDeviceVulkan12Features,
                        vk::PhysicalDeviceVulkan13Features,
                        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> feature_chain = {
         {.features = {.samplerAnisotropy = true}},
         {.shaderDrawParameters = true},
+        {.bufferDeviceAddress = true},
         {.synchronization2 = true, .dynamicRendering = true},
         {.extendedDynamicState = true},
     };
@@ -495,13 +500,10 @@ private:
   // ----------------------------------------------------------------------------: Uniforms
 
   void CreateDescriptorSetLayout() {
-    std::array bindings = {
-        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),
-        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),
-    };
+    vk::DescriptorSetLayoutBinding binding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr);
     vk::DescriptorSetLayoutCreateInfo layout_info{
-        .bindingCount = static_cast<uint32_t>(bindings.size()),
-        .pBindings = bindings.data(),
+        .bindingCount = 1,
+        .pBindings = &binding,
     };
     descriptor_set_layout_ = vk::raii::DescriptorSetLayout(device_, layout_info);
   }
@@ -586,11 +588,16 @@ private:
         .pDynamicStates = dynamic_states.data(),
     };
 
-    // Pipeline layout: no uniforms or push constants yet
+    vk::PushConstantRange push_constant_range{
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .offset = 0,
+        .size = sizeof(vk::DeviceAddress),
+    };
     vk::PipelineLayoutCreateInfo pipeline_layout_info{
         .setLayoutCount = 1,
         .pSetLayouts = &*descriptor_set_layout_,
-        .pushConstantRangeCount = 0
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range,
     };
     pipeline_layout_ = vk::raii::PipelineLayout(device_, pipeline_layout_info);
 
@@ -1120,81 +1127,73 @@ private:
     uniform_buffers_.clear();
     uniform_buffers_memory_.clear();
     uniform_buffers_mapped_.clear();
+    uniform_buffer_addresses_.clear();
+
+    vk::DeviceSize buffer_size = sizeof(UniformBufferObject);
 
     for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
-      vk::DeviceSize buffer_size = sizeof(UniformBufferObject);
+      vk::raii::Buffer buffer(device_, vk::BufferCreateInfo{
+          .size = buffer_size,
+          .usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+          .sharingMode = vk::SharingMode::eExclusive,
+      });
 
-      auto [buffer, memory] = CreateBuffer(
-          buffer_size,
-          vk::BufferUsageFlagBits::eUniformBuffer,
-          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+      auto mem_requirements = buffer.getMemoryRequirements();
+      vk::MemoryAllocateFlagsInfo alloc_flags{.flags = vk::MemoryAllocateFlagBits::eDeviceAddress};
+      vk::raii::DeviceMemory memory(device_, vk::MemoryAllocateInfo{
+          .pNext = &alloc_flags,
+          .allocationSize = mem_requirements.size,
+          .memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits,
+              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+      });
+      buffer.bindMemory(*memory, 0);
+
+      void* mapped = memory.mapMemory(0, buffer_size);
+      vk::DeviceAddress address = device_.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = *buffer});
 
       uniform_buffers_.emplace_back(std::move(buffer));
       uniform_buffers_memory_.emplace_back(std::move(memory));
-      uniform_buffers_mapped_.emplace_back(uniform_buffers_memory_[i].mapMemory(0, buffer_size));
+      uniform_buffers_mapped_.emplace_back(mapped);
+      uniform_buffer_addresses_.emplace_back(address);
     }
   }
 
   void CreateDescriptorPool() {
-    std::array pool_sizes = {
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
-        },
+    vk::DescriptorPoolSize pool_size{
+        .type = vk::DescriptorType::eCombinedImageSampler,
+        .descriptorCount = 1,
     };
     vk::DescriptorPoolCreateInfo pool_info{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = static_cast<uint32_t>(kMAX_FRAMES_IN_FLIGHT),
-        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
-        .pPoolSizes = pool_sizes.data(),
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &pool_size,
     };
     descriptor_pool_ = vk::raii::DescriptorPool(device_, pool_info);
   }
 
   void CreateDescriptorSets() {
-    std::vector<vk::DescriptorSetLayout> layouts(kMAX_FRAMES_IN_FLIGHT, *descriptor_set_layout_);
     vk::DescriptorSetAllocateInfo alloc_info{
         .descriptorPool = *descriptor_pool_,
-        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-        .pSetLayouts = layouts.data(),
+        .descriptorSetCount = 1,
+        .pSetLayouts = &*descriptor_set_layout_,
     };
     descriptor_sets_ = vk::raii::DescriptorSets(device_, alloc_info);
 
-    for (size_t i = 0; i < kMAX_FRAMES_IN_FLIGHT; i++) {
-      vk::DescriptorBufferInfo buffer_info{
-          .buffer = *uniform_buffers_[i],
-          .offset = 0,
-          .range = sizeof(UniformBufferObject),
-      };
-      vk::DescriptorImageInfo image_info{
-          .sampler = *texture_sampler_,
-          .imageView = *texture_image_view_,
-          .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-      };
-      std::array descriptor_writes = {
-          vk::WriteDescriptorSet{
-              .dstSet = *descriptor_sets_[i],
-              .dstBinding = 0,
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType = vk::DescriptorType::eUniformBuffer,
-              .pBufferInfo = &buffer_info,
-          },
-          vk::WriteDescriptorSet{
-              .dstSet = *descriptor_sets_[i],
-              .dstBinding = 1,
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-              .pImageInfo = &image_info,
-          },
-      };
-      device_.updateDescriptorSets(descriptor_writes, nullptr);
-    }
+    vk::DescriptorImageInfo image_info{
+        .sampler = *texture_sampler_,
+        .imageView = *texture_image_view_,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+    vk::WriteDescriptorSet write{
+        .dstSet = *descriptor_sets_[0],
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+        .pImageInfo = &image_info,
+    };
+    device_.updateDescriptorSets(write, nullptr);
   }
 
   // ----------------------------------------------------------------------------: Updating
@@ -1286,8 +1285,13 @@ private:
         vk::PipelineBindPoint::eGraphics,
         *pipeline_layout_,
         0,
-        *descriptor_sets_[frame_index_],
+        *descriptor_sets_[0],
         nullptr);
+    command_buffers_[frame_index_].pushConstants<vk::DeviceAddress>(
+        *pipeline_layout_,
+        vk::ShaderStageFlagBits::eVertex,
+        0,
+        uniform_buffer_addresses_[frame_index_]);
     command_buffers_[frame_index_].bindVertexBuffers(0, *vertex_buffer_, {0});
     command_buffers_[frame_index_].bindIndexBuffer(*index_buffer_, 0, vk::IndexType::eUint32);
     command_buffers_[frame_index_].setViewport(0, vk::Viewport(0.0f, 0.0f,
