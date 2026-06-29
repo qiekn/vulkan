@@ -2,10 +2,10 @@
 
 跟随 [Khronos Vulkan® Tutorial](https://docs.vulkan.org/tutorial/latest/) 学习 Vulkan。
 
-- [TEASER.md (Screenshots & Gifs)](./TEASER.md)
-- [个人 Notion 随笔](https://qiekn.notion.site/vulkan)
-- [在线 MdBook 笔记](https://qiekn.github.io/vulkan)（主要根据 Claude Code 对话的上下文总结）
-- [Bilibili 全过程视频记录](https://www.bilibili.com/video/BV1zhPUzcEtb)
+- [TEASER.md (Screenshots & GIFs)](./TEASER.md)
+- [不完整的 Notion 笔记](https://qiekn.notion.site/vulkan)
+- [MdBook Github Page 笔记](https://qiekn.github.io/vulkan)（AI SLOP）
+- [Bilibili 糟糕级视频](https://www.bilibili.com/video/BV1zhPUzcEtb)
 
 
 ## 开发环境
@@ -17,7 +17,7 @@
 
 ## 三方库依赖
 
-| 第三方库 (已通过 Git Submodule 引入)                                 | 用途         |
+| 第三方库 (已通过 Git Submodule 引入)                            | 用途         |
 | ----                                                            | ------       |
 | [GLFW](https://github.com/glfw/glfw)                            | 窗口管理     |
 | [GLM](https://github.com/g-truc/glm)                            | 数学库       |
