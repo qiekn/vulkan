@@ -3,7 +3,7 @@ name: Deploy mdbook to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: [c++/notes/**]
+    paths: [cpp/notes/**]
   workflow_dispatch:
 
 permissions:
