@@ -17,7 +17,7 @@
 
 ## 库依赖
 
-| 第三方库 (已通过 Git Submodule 引入)                            | 用途         |
+| 第三方库                                                        | 用途         |
 | ----                                                            | ------       |
 | [GLFW](https://github.com/glfw/glfw)                            | 窗口         |
 | [GLM](https://github.com/g-truc/glm)                            | 数学库       |
@@ -25,10 +25,6 @@
 | [stb](https://github.com/nothings/stb) (`stb_image.h`)          | 图像加载     |
 
 ## 构建运行
-
-```bash
-git clone --recursive https://github.com/qiekn/vulkan.git
-```
 
 下载安装 [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)，确保 `VULKAN_SDK` 环境变量已设置。
 
